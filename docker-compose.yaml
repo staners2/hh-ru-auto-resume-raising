@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  hh-ru-auto-resume-raising:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hh-ru-auto-resume-raising
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Moscow
+    volumes:
+      - ./config:/app/config
+    command: python3 bot.py
