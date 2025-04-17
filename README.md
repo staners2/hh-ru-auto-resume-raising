@@ -15,6 +15,7 @@ mv .env_pub .env
  - без выделения переменных ковычками!
  - в поле proxy оставить 1 из вариантов (если нет прокси, то proxy=None)
 
+### Запуск на сервере
 Установить зависимости
 ```
 python3 -m pip install -r requirements.txt
@@ -23,6 +24,15 @@ python3 -m pip install -r requirements.txt
 ```
 python3 bot.py
 ```
+### Запуск в контейнере
+```
+# Установить docker и docker-compose
+# https://docs.docker.com/engine/install/ubuntu/
+
+# Запустить приложение
+docker compose up -d
+```
+
 ### Принцип работы
 1) Выполнить пункты из инструкции
 2) Активировать бота (если бот был активирован ввести команду /start)
