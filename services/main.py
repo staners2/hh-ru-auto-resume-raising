@@ -125,8 +125,13 @@ class HHru:
         self.resume_active[title] = dict(resume_id=self.resume_src[title],
                                          time=dict(hour=hour, minute=minute, seconds=result.tm_sec),
                                          unixtime=unixtime, lunixtime=unixtime-60*60*4)
+        from services import save_schedule
+        save_schedule(self.resume_active)
         await asyncio.sleep(0.01)
 
     async def del_resume_active(self, title: str) -> None:
         await asyncio.sleep(0.01)
-        return self.resume_active.pop(title, False)
+        result = self.resume_active.pop(title, False)
+        from services import save_schedule
+        save_schedule(self.resume_active)
+        return result
