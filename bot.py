@@ -3,13 +3,15 @@ from aiogram import executor
 from handlers import (register_handler_base,
                       register_handler_add_to_schedule,
                       register_handler_delete_from_schedule)
-from services import on_startup, on_shutdown, load_tokens_auth, Config
+from services import on_startup, on_shutdown, load_tokens_auth, Config, save_schedule, load_schedule
 from services.connecting import dp
 from services.check_proxy import is_valid
 from services.status_code import status
 
-
+# Загружаем расписание при старте
 load_tokens_auth()
+from services.connecting import obj
+obj.resume_active = load_schedule()
 
 register_handler_base(dp)
 register_handler_add_to_schedule(dp)
