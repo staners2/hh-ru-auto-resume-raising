@@ -440,6 +440,12 @@ func (b *Bot) handleCancelAddResume(callback *tgbotapi.CallbackQuery) {
 	// Удаляем сообщение с кнопками
 	deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
 	b.api.Request(deleteMsg)
+	
+	// Удаляем оригинальное сообщение "➕ Добавить/обновить" если можем его найти
+	if callback.Message.ReplyToMessage != nil {
+		deleteOriginal := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.ReplyToMessage.MessageID)
+		b.api.Request(deleteOriginal)
+	}
 }
 
 func (b *Bot) handleAddResumeCallback(callback *tgbotapi.CallbackQuery) {
