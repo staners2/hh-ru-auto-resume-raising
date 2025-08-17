@@ -131,3 +131,28 @@ dmypy.json
 #Custom
 .idea/
 main_sync.py
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.dylib
+*.test
+*.out
+go.work
+main
+bin/
+
+# Config files with sensitive data
+config/*
+!config/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+
+# Temporary files
+*.tmp
