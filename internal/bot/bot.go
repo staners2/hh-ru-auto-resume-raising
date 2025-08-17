@@ -288,7 +288,18 @@ func (b *Bot) handleAddResume(chatID int64) {
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = "HTML"
 	msg.ReplyMarkup = markup
-	b.api.Send(msg)
+	
+	// Сохраняем ID отправленного сообщения для возможности удаления при отмене
+	sentMsg, _ := b.api.Send(msg)
+	if b.userStates == nil {
+		b.userStates = make(map[int64]*UserState)
+	}
+	b.userStates[chatID] = &UserState{
+		State: "showing_resume_list",
+		Data: map[string]string{
+			"message_id": fmt.Sprintf("%d", sentMsg.MessageID),
+		},
+	}
 }
 
 func (b *Bot) handleDeleteResume(chatID int64) {
@@ -441,11 +452,8 @@ func (b *Bot) handleCancelAddResume(callback *tgbotapi.CallbackQuery) {
 	deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
 	b.api.Request(deleteMsg)
 	
-	// Удаляем оригинальное сообщение "➕ Добавить/обновить" если можем его найти
-	if callback.Message.ReplyToMessage != nil {
-		deleteOriginal := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.ReplyToMessage.MessageID)
-		b.api.Request(deleteOriginal)
-	}
+	// Очищаем состояние пользователя
+	delete(b.userStates, callback.Message.Chat.ID)
 }
 
 func (b *Bot) handleAddResumeCallback(callback *tgbotapi.CallbackQuery) {
