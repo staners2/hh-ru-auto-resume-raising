@@ -10,7 +10,9 @@
       "Bash(git tag:*)",
       "Bash(go build:*)",
       "Bash(docker-compose:*)",
-      "Bash(docker logs:*)"
+      "Bash(docker logs:*)",
+      "Bash(touch:*)",
+      "Bash(git filter-branch:*)"
     ],
     "deny": [],
     "ask": []
