@@ -9,6 +9,8 @@ jobs:
   release:
     permissions:
       contents: write
+      pages: write
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -34,20 +36,25 @@ jobs:
 
       - name: Package Helm Chart
         run: |
-          helm package .helm/
+          mkdir -p charts-packages
+          helm package .helm/ -d charts-packages/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            *.tgz
+            charts-packages/*.tgz
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0
+      - name: Generate Helm repo index
+        run: |
+          helm repo index charts-packages/ --url https://staners2.github.io/hh-ru-auto-resume-raising
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          charts_dir: .helm
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: charts-packages
+          publish_branch: gh-pages
