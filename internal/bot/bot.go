@@ -104,15 +104,19 @@ func (b *Bot) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	switch callback.Data {
-	case "auth":
+	switch {
+	case callback.Data == "auth":
 		b.handleAuth(callback.Message.Chat.ID)
-	case "update_resumes":
+	case callback.Data == "update_resumes":
 		b.handleUpdateResumes(callback.Message.Chat.ID)
-	case "schedule":
+	case callback.Data == "schedule":
 		b.handleShowSchedule(callback.Message.Chat.ID)
-	case "toggle_notifications":
+	case callback.Data == "toggle_notifications":
 		b.handleToggleNotifications(callback.Message.Chat.ID)
+	case callback.Data == "cancel_add_resume":
+		b.handleCancelAddResume(callback)
+	case strings.HasPrefix(callback.Data, "add_resume:"):
+		b.handleAddResumeCallback(callback)
 	}
 
 	b.api.Request(tgbotapi.NewCallback(callback.ID, ""))
@@ -248,13 +252,42 @@ func (b *Bot) handleAddResume(chatID int64) {
 		return
 	}
 
-	// Устанавливаем состояние ожидания названия резюме
-	b.userStates[chatID] = &UserState{
-		State: "add_resume_title",
-		Data:  make(map[string]string),
+	// Получаем текущие расписания для отображения времени
+	schedules := b.scheduler.GetAll()
+
+	// Создаем inline клавиатуру с резюме
+	var keyboard [][]tgbotapi.InlineKeyboardButton
+	
+	for _, resume := range resumes {
+		buttonText := resume.Title
+		
+		// Проверяем, есть ли уже расписание для этого резюме
+		if schedule, exists := schedules[resume.Title]; exists {
+			buttonText += fmt.Sprintf(" ⏰ %02d:%02d", schedule.Hour, schedule.Minute)
+		} else {
+			buttonText += " ➕"
+		}
+		
+		button := tgbotapi.NewInlineKeyboardButtonData(
+			buttonText,
+			fmt.Sprintf("add_resume:%s", resume.ID),
+		)
+		keyboard = append(keyboard, []tgbotapi.InlineKeyboardButton{button})
 	}
 
-	msg := tgbotapi.NewMessage(chatID, "Введите наименование резюме, которое нужно поднимать.")
+	// Добавляем кнопку отмены
+	cancelButton := tgbotapi.NewInlineKeyboardButtonData("❌ Отмена", "cancel_add_resume")
+	keyboard = append(keyboard, []tgbotapi.InlineKeyboardButton{cancelButton})
+
+	markup := tgbotapi.NewInlineKeyboardMarkup(keyboard...)
+	
+	text := "<b>Выберите резюме для настройки автоподъема:</b>\n\n"
+	text += "⏰ - уже настроено (время подъема)\n"
+	text += "➕ - не настроено"
+	
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = markup
 	b.api.Send(msg)
 }
 
@@ -281,8 +314,6 @@ func (b *Bot) handleState(message *tgbotapi.Message, state *UserState) {
 	userID := message.Chat.ID
 
 	switch state.State {
-	case "add_resume_title":
-		b.handleAddResumeTitle(message, state)
 	case "add_resume_time":
 		b.handleAddResumeTime(message, state)
 	case "delete_resume_title":
@@ -294,47 +325,6 @@ func (b *Bot) handleState(message *tgbotapi.Message, state *UserState) {
 	}
 }
 
-func (b *Bot) handleAddResumeTitle(message *tgbotapi.Message, state *UserState) {
-	userID := message.Chat.ID
-	resumeTitle := message.Text
-
-	// Проверяем, существует ли такое резюме
-	resumes, err := b.hhClient.GetResumes()
-	if err != nil {
-		delete(b.userStates, userID)
-		msg := tgbotapi.NewMessage(userID, "Ошибка получения списка резюме")
-		b.api.Send(msg)
-		return
-	}
-
-	found := false
-	var resumeID string
-	for _, resume := range resumes {
-		if resume.Title == resumeTitle {
-			found = true
-			resumeID = resume.ID
-			break
-		}
-	}
-
-	if !found {
-		delete(b.userStates, userID)
-		msg := tgbotapi.NewMessage(userID, "Резюме с таким наименованием не найдено.")
-		b.api.Send(msg)
-		return
-	}
-
-	// Сохраняем данные и переходим к следующему состоянию
-	state.Data["title"] = resumeTitle
-	state.Data["resumeID"] = resumeID
-	state.State = "add_resume_time"
-
-	text := "Введите время поднятия, например 14:00 будет соответствовать " +
-		"2:00 6:00 10:00 <code>14:00</code> 18:00 22:00"
-	msg := tgbotapi.NewMessage(userID, text)
-	msg.ParseMode = "HTML"
-	b.api.Send(msg)
-}
 
 func (b *Bot) handleAddResumeTime(message *tgbotapi.Message, state *UserState) {
 	userID := message.Chat.ID
@@ -443,6 +433,64 @@ func (b *Bot) handleToggleNotifications(chatID int64) {
 	}
 
 	msg := tgbotapi.NewMessage(chatID, text)
+	b.api.Send(msg)
+}
+
+func (b *Bot) handleCancelAddResume(callback *tgbotapi.CallbackQuery) {
+	// Удаляем сообщение с кнопками
+	deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+	b.api.Request(deleteMsg)
+	
+	// Отправляем сообщение об отмене
+	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "❌ Отменено")
+	b.api.Send(msg)
+}
+
+func (b *Bot) handleAddResumeCallback(callback *tgbotapi.CallbackQuery) {
+	// Извлекаем ID резюме из callback data
+	resumeID := strings.TrimPrefix(callback.Data, "add_resume:")
+	
+	// Найдем резюме по ID чтобы получить название
+	resumes, err := b.hhClient.GetResumes()
+	if err != nil {
+		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "Ошибка получения списка резюме")
+		b.api.Send(msg)
+		return
+	}
+	
+	var resumeTitle string
+	for _, resume := range resumes {
+		if resume.ID == resumeID {
+			resumeTitle = resume.Title
+			break
+		}
+	}
+	
+	if resumeTitle == "" {
+		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "Резюме не найдено")
+		b.api.Send(msg)
+		return
+	}
+	
+	// Удаляем сообщение с кнопками
+	deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+	b.api.Request(deleteMsg)
+	
+	// Устанавливаем состояние ожидания времени
+	b.userStates[callback.Message.Chat.ID] = &UserState{
+		State: "add_resume_time",
+		Data: map[string]string{
+			"title":    resumeTitle,
+			"resumeID": resumeID,
+		},
+	}
+	
+	text := fmt.Sprintf("<b>Настройка автоподъема для:</b>\n%s\n\n", resumeTitle)
+	text += "Введите время поднятия, например <code>14:00</code> будет соответствовать:\n"
+	text += "2:00 6:00 10:00 <code>14:00</code> 18:00 22:00"
+	
+	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
+	msg.ParseMode = "HTML"
 	b.api.Send(msg)
 }
 
