@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hh-ru-auto-resume-raising.fullname" . }}
+  labels:
+    {{- include "hh-ru-auto-resume-raising.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "hh-ru-auto-resume-raising.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "hh-ru-auto-resume-raising.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: TELEGRAM_TOKEN
+              value: "{{ .Values.env.TELEGRAM_TOKEN }}"
+            - name: ADMIN_TG
+              value: "{{ .Values.env.ADMIN_TG }}"
+            - name: HH_LOGIN
+              value: "{{ .Values.env.HH_LOGIN }}"
+            - name: HH_PASSWORD
+              value: "{{ .Values.env.HH_PASSWORD }}"
+            - name: TZ
+              value: "{{ .Values.env.TZ }}"
+            - name: PROXY
+              value: "{{ .Values.env.PROXY }}"
+            - name: SCHEDULE_INTERVAL
+              value: "{{ .Values.env.SCHEDULE_INTERVAL }}"
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: config-storage
+              mountPath: /root/config
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: config-storage
+          persistentVolumeClaim:
+            claimName: {{ if .Values.persistence.existingClaim }}{{ .Values.persistence.existingClaim }}{{ else }}{{ include "hh-ru-auto-resume-raising.fullname" . }}-pvc{{ end }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

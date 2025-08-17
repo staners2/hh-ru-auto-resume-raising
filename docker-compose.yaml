@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     container_name: hh-ru-auto-resume-raising
     restart: always
     env_file:
@@ -11,5 +13,5 @@ services:
     environment:
       - TZ=Europe/Moscow
     volumes:
-      - ./config:/app/config
-    command: python3 bot.py
+      - ./config:/root/config
+    # Команда запуска теперь встроена в Dockerfile

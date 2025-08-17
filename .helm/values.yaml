@@ -1,0 +1,52 @@
+# Default values for hh-ru-auto-resume-raising
+image:
+  repository: ghcr.io/staners2/hh-ru-auto-resume-raising
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+resources:
+  limits:
+    cpu: 50m
+    memory: 64Mi
+  requests:
+    cpu: 10m
+    memory: 20Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Persistent Volume configuration for storing schedules
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 100Mi
+  storageClass: ""
+  existingClaim: ""
+
+# Environment variables for the bot
+env:
+  # Telegram bot configuration
+  TELEGRAM_TOKEN: ""
+  ADMIN_TG: ""
+  
+  # HeadHunter credentials
+  HH_LOGIN: ""
+  HH_PASSWORD: ""
+  
+  # Additional settings
+  TZ: "Europe/Moscow"
+  PROXY: "None"
+  SCHEDULE_INTERVAL: "3600"
