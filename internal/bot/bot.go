@@ -87,7 +87,7 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) {
 	case "📅 Расписание":
 		b.handleShowSchedule(message.Chat.ID)
 	case "➕ Добавить/обновить":
-		b.handleAddResume(message.Chat.ID)
+		b.handleAddResumeWithMessage(message)
 	case "❌ Удалить":
 		b.handleDeleteResume(message.Chat.ID)
 	case "🚀️ Авторизоваться":
@@ -243,7 +243,11 @@ func (b *Bot) handleUpdateResumes(chatID int64) {
 	}
 }
 
-func (b *Bot) handleAddResume(chatID int64) {
+func (b *Bot) handleAddResumeWithMessage(message *tgbotapi.Message) {
+	b.handleAddResume(message.Chat.ID, message.MessageID)
+}
+
+func (b *Bot) handleAddResume(chatID int64, originalMessageID ...int) {
 	// Получаем список резюме
 	resumes, err := b.hhClient.GetResumes()
 	if err != nil || len(resumes) == 0 {
@@ -294,11 +298,19 @@ func (b *Bot) handleAddResume(chatID int64) {
 	if b.userStates == nil {
 		b.userStates = make(map[int64]*UserState)
 	}
+	
+	data := map[string]string{
+		"resume_list_message_id": fmt.Sprintf("%d", sentMsg.MessageID),
+	}
+	
+	// Сохраняем ID оригинального сообщения если оно передано
+	if len(originalMessageID) > 0 {
+		data["original_message_id"] = fmt.Sprintf("%d", originalMessageID[0])
+	}
+	
 	b.userStates[chatID] = &UserState{
 		State: "showing_resume_list",
-		Data: map[string]string{
-			"message_id": fmt.Sprintf("%d", sentMsg.MessageID),
-		},
+		Data:  data,
 	}
 }
 
@@ -448,12 +460,24 @@ func (b *Bot) handleToggleNotifications(chatID int64) {
 }
 
 func (b *Bot) handleCancelAddResume(callback *tgbotapi.CallbackQuery) {
+	chatID := callback.Message.Chat.ID
+	
 	// Удаляем сообщение с кнопками
-	deleteMsg := tgbotapi.NewDeleteMessage(callback.Message.Chat.ID, callback.Message.MessageID)
+	deleteMsg := tgbotapi.NewDeleteMessage(chatID, callback.Message.MessageID)
 	b.api.Request(deleteMsg)
 	
+	// Удаляем оригинальное сообщение "➕ Добавить/обновить" если есть
+	if state, exists := b.userStates[chatID]; exists {
+		if originalMsgID := state.Data["original_message_id"]; originalMsgID != "" {
+			if msgID, err := strconv.Atoi(originalMsgID); err == nil {
+				deleteOriginal := tgbotapi.NewDeleteMessage(chatID, msgID)
+				b.api.Request(deleteOriginal)
+			}
+		}
+	}
+	
 	// Очищаем состояние пользователя
-	delete(b.userStates, callback.Message.Chat.ID)
+	delete(b.userStates, chatID)
 }
 
 func (b *Bot) handleAddResumeCallback(callback *tgbotapi.CallbackQuery) {
