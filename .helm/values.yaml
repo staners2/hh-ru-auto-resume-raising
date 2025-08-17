@@ -10,17 +10,28 @@ fullnameOverride: ""
 
 podAnnotations: {}
 
-podSecurityContext: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
 
-securityContext: {}
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
 
 resources:
   limits:
     cpu: 50m
-    memory: 64Mi
+    memory: 32Mi
   requests:
-    cpu: 10m
-    memory: 20Mi
+    cpu: 5m
+    memory: 16Mi
 
 nodeSelector: {}
 

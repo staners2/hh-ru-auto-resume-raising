@@ -59,3 +59,18 @@ vendor
 
 # Test files
 *_test.go
+testdata/
+
+# Development tools
+.github/
+.helm/
+scripts/
+
+# Python reference code
+ffffff/
+
+# Claude settings
+.claude/
+
+# Config directory (will be mounted)
+config/

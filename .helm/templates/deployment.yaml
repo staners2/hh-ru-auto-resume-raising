@@ -48,7 +48,7 @@ spec:
           volumeMounts:
             {{- if .Values.persistence.enabled }}
             - name: config-storage
-              mountPath: /root/config
+              mountPath: /app/config
             {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

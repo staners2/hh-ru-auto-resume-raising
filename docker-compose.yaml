@@ -13,5 +13,5 @@ services:
     environment:
       - TZ=Europe/Moscow
     volumes:
-      - ./config:/root/config
+      - ./config:/app/config
     # Команда запуска теперь встроена в Dockerfile
