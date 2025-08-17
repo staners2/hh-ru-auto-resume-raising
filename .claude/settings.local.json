@@ -5,7 +5,12 @@
       "Bash(docker-compose logs:*)",
       "Bash(docker build:*)",
       "Bash(docker compose:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(go build:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker logs:*)"
     ],
     "deny": [],
     "ask": []

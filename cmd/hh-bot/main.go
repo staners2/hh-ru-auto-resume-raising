@@ -51,7 +51,7 @@ func main() {
 	}
 
 	// Создаем бота
-	telegramBot, err := bot.New(cfg, hhClient, sched)
+	telegramBot, err := bot.New(cfg, hhClient, sched, store)
 	if err != nil {
 		log.Fatal("Failed to create bot:", err)
 	}

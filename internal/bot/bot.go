@@ -9,6 +9,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"hh-ru-auto-resume-raising/internal/hh"
 	"hh-ru-auto-resume-raising/internal/scheduler"
+	"hh-ru-auto-resume-raising/internal/storage"
 	"hh-ru-auto-resume-raising/pkg/config"
 )
 
@@ -22,10 +23,11 @@ type Bot struct {
 	config     *config.Config
 	hhClient   *hh.Client
 	scheduler  *scheduler.Scheduler
+	storage    *storage.Storage
 	userStates map[int64]*UserState
 }
 
-func New(cfg *config.Config, hhClient *hh.Client, sched *scheduler.Scheduler) (*Bot, error) {
+func New(cfg *config.Config, hhClient *hh.Client, sched *scheduler.Scheduler, store *storage.Storage) (*Bot, error) {
 	api, err := tgbotapi.NewBotAPI(cfg.TelegramToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bot: %w", err)
@@ -36,6 +38,7 @@ func New(cfg *config.Config, hhClient *hh.Client, sched *scheduler.Scheduler) (*
 		config:     cfg,
 		hhClient:   hhClient,
 		scheduler:  sched,
+		storage:    store,
 		userStates: make(map[int64]*UserState),
 	}, nil
 }
@@ -147,6 +150,14 @@ func (b *Bot) handleAuth(chatID int64) {
 	var text string
 	if err == nil {
 		text = "✅ Авторизация успешна"
+		// Сохраняем токены после успешной авторизации
+		if xsrf, hhtoken := b.hhClient.GetTokens(); xsrf != "" && hhtoken != "" {
+			if saveErr := b.storage.SaveTokens(xsrf, hhtoken); saveErr != nil {
+				log.Printf("Failed to save tokens: %v", saveErr)
+			} else {
+				log.Println("Tokens saved successfully")
+			}
+		}
 	} else {
 		text = "❌ Ошибка авторизации: " + err.Error()
 	}
@@ -358,6 +369,13 @@ func (b *Bot) handleAddResumeTime(message *tgbotapi.Message, state *UserState) {
 	
 	b.scheduler.AddResume(title, resumeID, hour, minute)
 	
+	// Сохраняем расписание
+	if err := b.storage.SaveSchedule(b.scheduler.GetAll()); err != nil {
+		log.Printf("Failed to save schedule: %v", err)
+	} else {
+		log.Println("Schedule saved successfully")
+	}
+	
 	text := fmt.Sprintf("<b>Добавлено новое расписание</b>\n%s\n%s", title, timeStr)
 	msg := tgbotapi.NewMessage(userID, text)
 	msg.ParseMode = "HTML"
@@ -377,6 +395,12 @@ func (b *Bot) handleDeleteResumeTitle(message *tgbotapi.Message, state *UserStat
 	var text string
 	if removed {
 		text = fmt.Sprintf("<b>Удалено следующее резюме</b>\n%s", resumeTitle)
+		// Сохраняем расписание после удаления
+		if err := b.storage.SaveSchedule(b.scheduler.GetAll()); err != nil {
+			log.Printf("Failed to save schedule: %v", err)
+		} else {
+			log.Println("Schedule saved successfully after deletion")
+		}
 	} else {
 		text = "Резюме с таким наименованием не найдено."
 	}
