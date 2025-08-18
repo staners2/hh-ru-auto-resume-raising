@@ -105,7 +105,7 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) {
 	case "➕ Настроить подъем":
 		b.handleAddResumeWithMessage(message)
 	case "❌ Удалить из расписания":
-		b.handleDeleteResume(message.Chat.ID)
+		b.handleDeleteResumeWithMessage(message)
 	case "🔐 Войти в HeadHunter", "✅ Авторизован":
 		b.handleAuth(message.Chat.ID)
 	case "🔄 Обновить данные":
@@ -118,7 +118,7 @@ func (b *Bot) handleMessage(message *tgbotapi.Message) {
 	case "➕ Добавить/обновить":
 		b.handleAddResumeWithMessage(message)
 	case "❌ Удалить":
-		b.handleDeleteResume(message.Chat.ID)
+		b.handleDeleteResumeWithMessage(message)
 	case "🚀️ Авторизоваться":
 		b.handleAuth(message.Chat.ID)
 	case "📝 Обновить список резюме":
@@ -428,6 +428,10 @@ func (b *Bot) handleAddResumeWithMessage(message *tgbotapi.Message) {
 	b.handleAddResume(message.Chat.ID, message.MessageID)
 }
 
+func (b *Bot) handleDeleteResumeWithMessage(message *tgbotapi.Message) {
+	b.handleDeleteResume(message.Chat.ID, message.MessageID)
+}
+
 func (b *Bot) handleAddResume(chatID int64, originalMessageID ...int) {
 	// Получаем список резюме
 	resumes, err := b.hhClient.GetResumes()
@@ -495,7 +499,7 @@ func (b *Bot) handleAddResume(chatID int64, originalMessageID ...int) {
 	}
 }
 
-func (b *Bot) handleDeleteResume(chatID int64) {
+func (b *Bot) handleDeleteResume(chatID int64, originalMessageID ...int) {
 	// Проверяем, есть ли резюме в расписании
 	schedules := b.scheduler.GetAll()
 	if len(schedules) == 0 {
@@ -541,11 +545,18 @@ func (b *Bot) handleDeleteResume(chatID int64) {
 		b.userStates = make(map[int64]*UserState)
 	}
 	
+	data := map[string]string{
+		"delete_list_message_id": fmt.Sprintf("%d", sentMsg.MessageID),
+	}
+	
+	// Сохраняем ID оригинального сообщения если оно передано
+	if len(originalMessageID) > 0 {
+		data["original_message_id"] = fmt.Sprintf("%d", originalMessageID[0])
+	}
+	
 	b.userStates[chatID] = &UserState{
 		State: "showing_delete_list",
-		Data: map[string]string{
-			"delete_list_message_id": fmt.Sprintf("%d", sentMsg.MessageID),
-		},
+		Data:  data,
 	}
 }
 
@@ -886,12 +897,23 @@ func (b *Bot) handleDeleteResumeCallback(callback *tgbotapi.CallbackQuery) {
 		text += fmt.Sprintf("Резюме \"%s\" не найдено в расписании.", resumeTitle)
 	}
 
-	msg := tgbotapi.NewMessage(callback.Message.Chat.ID, text)
+	// Удаляем оригинальное сообщение "❌ Удалить из расписания" если есть
+	chatID := callback.Message.Chat.ID
+	if state, exists := b.userStates[chatID]; exists {
+		if originalMsgID := state.Data["original_message_id"]; originalMsgID != "" {
+			if msgID, err := strconv.Atoi(originalMsgID); err == nil {
+				deleteOriginal := tgbotapi.NewDeleteMessage(chatID, msgID)
+				b.api.Request(deleteOriginal)
+			}
+		}
+	}
+	
+	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = "HTML"
 	b.api.Send(msg)
 	
 	// Очищаем состояние пользователя
-	delete(b.userStates, callback.Message.Chat.ID)
+	delete(b.userStates, chatID)
 }
 
 func (b *Bot) handleCancelDeleteResume(callback *tgbotapi.CallbackQuery) {
@@ -900,6 +922,16 @@ func (b *Bot) handleCancelDeleteResume(callback *tgbotapi.CallbackQuery) {
 	// Удаляем сообщение с кнопками
 	deleteMsg := tgbotapi.NewDeleteMessage(chatID, callback.Message.MessageID)
 	b.api.Request(deleteMsg)
+	
+	// Удаляем оригинальное сообщение "❌ Удалить из расписания" если есть
+	if state, exists := b.userStates[chatID]; exists {
+		if originalMsgID := state.Data["original_message_id"]; originalMsgID != "" {
+			if msgID, err := strconv.Atoi(originalMsgID); err == nil {
+				deleteOriginal := tgbotapi.NewDeleteMessage(chatID, msgID)
+				b.api.Request(deleteOriginal)
+			}
+		}
+	}
 	
 	// Очищаем состояние пользователя
 	delete(b.userStates, chatID)
