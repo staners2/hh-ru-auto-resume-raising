@@ -48,9 +48,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate Helm repo index
+      - name: Download existing charts from GitHub Pages
         run: |
-          helm repo index charts-packages/ --url https://staners2.github.io/hh-ru-auto-resume-raising
+          # Скачиваем существующие чарты и index.yaml из GitHub Pages
+          mkdir -p existing-charts
+          curl -L -f -s -o existing-charts/index.yaml https://staners2.github.io/hh-ru-auto-resume-raising/index.yaml || echo "No existing index.yaml found"
+          
+          # Скачиваем все существующие .tgz файлы
+          if [ -f existing-charts/index.yaml ]; then
+            # Извлекаем URLs всех чартов из index.yaml и скачиваем их
+            grep -o 'https://staners2.github.io/hh-ru-auto-resume-raising/[^"]*\.tgz' existing-charts/index.yaml | while read url; do
+              filename=$(basename "$url")
+              echo "Downloading $filename from $url"
+              curl -L -f -s -o "existing-charts/$filename" "$url" || echo "Failed to download $filename"
+            done
+          fi
+
+      - name: Merge charts and generate index
+        run: |
+          # Копируем существующие чарты в директорию с новыми
+          if [ -d existing-charts ] && [ "$(ls -A existing-charts/*.tgz 2>/dev/null)" ]; then
+            cp existing-charts/*.tgz charts-packages/ 2>/dev/null || true
+          fi
+          
+          # Генерируем обновленный index.yaml со всеми чартами
+          helm repo index charts-packages/ --url https://staners2.github.io/hh-ru-auto-resume-raising --merge existing-charts/index.yaml
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
