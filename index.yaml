@@ -2,10 +2,10 @@ apiVersion: v1
 entries:
   hh-ru-auto-resume-raising:
   - apiVersion: v2
-    appVersion: 1.1.0
-    created: "2025-08-17T15:22:41.392406494Z"
+    appVersion: 1.1.1
+    created: "2025-08-18T09:29:06.654174388Z"
     description: A Helm chart for HH.ru auto resume raising bot
-    digest: b175d6574e260f26d39d1a78ee8fefc29660483b245562ea0b23d2a58eaf522b
+    digest: 8e96f4f165039eeb4513a862760718c2402cee3f9a598a86037616485726c53c
     home: https://github.com/staners2/hh-ru-auto-resume-raising
     keywords:
     - hh.ru
@@ -19,6 +19,6 @@ entries:
     - https://github.com/staners2/hh-ru-auto-resume-raising
     type: application
     urls:
-    - https://staners2.github.io/hh-ru-auto-resume-raising/hh-ru-auto-resume-raising-1.1.0.tgz
-    version: 1.1.0
-generated: "2025-08-17T15:22:41.391909862Z"
+    - https://staners2.github.io/hh-ru-auto-resume-raising/hh-ru-auto-resume-raising-1.1.1.tgz
+    version: 1.1.1
+generated: "2025-08-18T09:29:06.65370674Z"
